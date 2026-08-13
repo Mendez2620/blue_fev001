@@ -118,6 +118,10 @@ model User {
   analyticsSessions AnalyticsSession[]
   futureSimulations FutureSimulation[]
   careerLabAttempts CareerLabAttempt[]
+  impactParticipations ImpactParticipation[]
+  impactReviewedContributions ImpactContribution[] @relation("ImpactContributionReviewer")
+  impactPublicAuthorizations ImpactContribution[] @relation("ImpactContributionPublicAuthorizer")
+  impactContributionEvents ImpactContributionEvent[] @relation("ImpactContributionEventActor")
   createdAt    DateTime @default(now()) @db.DateTime(3)
   updatedAt    DateTime @updatedAt @db.DateTime(3)
 
@@ -234,4 +238,195 @@ model Message {
 enum MessageRole {
   user
   assistant
+}
+
+model ImpactZone {
+  id           String            @id @default(cuid()) @db.VarChar(191)
+  slug         String            @unique @db.VarChar(96)
+  name         String            @db.VarChar(191)
+  description  String            @db.Text
+  targetPoints Int
+  active       Boolean           @default(true)
+  sortOrder    Int
+  missions     ImpactMission[]
+  events       ImpactZoneEvent[]
+  createdAt    DateTime          @default(now()) @db.DateTime(3)
+  updatedAt    DateTime          @updatedAt @db.DateTime(3)
+
+  @@index([active, sortOrder])
+  @@map("app_impact_zones")
+}
+
+model ImpactMission {
+  id                 String                    @id @default(cuid()) @db.VarChar(191)
+  zoneId             String                    @db.VarChar(191)
+  slug               String                    @unique @db.VarChar(96)
+  title              String                    @db.VarChar(191)
+  summary            String                    @db.VarChar(500)
+  problemDescription String                    @db.Text
+  objective          String                    @db.Text
+  instructions       String                    @db.Text
+  deliverables       Json
+  validationCriteria Json
+  safetyNotes        String                    @db.Text
+  difficulty         String                    @db.VarChar(32)
+  estimatedMinutes   Int
+  points             Int
+  evidenceType       String                    @db.VarChar(64)
+  participationMode  String                    @db.VarChar(32)
+  publicationStatus  String                    @default("DRAFT") @db.VarChar(32)
+  active             Boolean                   @default(true)
+  startsAt           DateTime?                 @db.DateTime(3)
+  endsAt             DateTime?                 @db.DateTime(3)
+  sortOrder          Int
+  zone               ImpactZone                @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  capabilities       ImpactMissionCapability[]
+  participations     ImpactParticipation[]
+  createdAt          DateTime                  @default(now()) @db.DateTime(3)
+  updatedAt          DateTime                  @updatedAt @db.DateTime(3)
+
+  @@index([zoneId, publicationStatus, active])
+  @@map("app_impact_missions")
+}
+
+model ImpactCapability {
+  id             String                    @id @default(cuid()) @db.VarChar(191)
+  slug           String                    @unique @db.VarChar(96)
+  name           String                    @db.VarChar(191)
+  description    String                    @db.Text
+  category       String                    @db.VarChar(64)
+  active         Boolean                   @default(true)
+  missions       ImpactMissionCapability[]
+  careerMappings ImpactCareerCapability[]
+  createdAt      DateTime                  @default(now()) @db.DateTime(3)
+  updatedAt      DateTime                  @updatedAt @db.DateTime(3)
+
+  @@index([active, category])
+  @@map("app_impact_capabilities")
+}
+
+model ImpactMissionCapability {
+  missionId    String           @db.VarChar(191)
+  capabilityId String           @db.VarChar(191)
+  weight       Int
+  mission      ImpactMission    @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  capability   ImpactCapability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  @@id([missionId, capabilityId])
+  @@index([capabilityId])
+  @@map("app_impact_mission_capabilities")
+}
+
+model ImpactParticipation {
+  id           String              @id @default(cuid()) @db.VarChar(191)
+  missionId    String              @db.VarChar(191)
+  userId       String              @db.VarChar(191)
+  status       String              @default("ACTIVE") @db.VarChar(32)
+  revision     Int                 @default(0)
+  startedAt    DateTime            @default(now()) @db.DateTime(3)
+  completedAt  DateTime?           @db.DateTime(3)
+  mission      ImpactMission       @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contribution ImpactContribution?
+  createdAt    DateTime            @default(now()) @db.DateTime(3)
+  updatedAt    DateTime            @updatedAt @db.DateTime(3)
+
+  @@unique([userId, missionId])
+  @@index([userId, updatedAt])
+  @@index([missionId, status])
+  @@map("app_impact_participations")
+}
+
+model ImpactContribution {
+  id                     String                    @id @default(cuid()) @db.VarChar(191)
+  participationId        String                    @unique @db.VarChar(191)
+  title                  String                    @db.VarChar(191)
+  description            String                    @db.Text
+  processNotes           String?                   @db.Text
+  resultUrl              String?                   @db.VarChar(500)
+  repositoryUrl          String?                   @db.VarChar(500)
+  reflection             String?                   @db.Text
+  status                 String                    @default("DRAFT") @db.VarChar(32)
+  revision               Int                       @default(0)
+  visibility             String                    @default("PRIVATE") @db.VarChar(32)
+  publicAuthorizedAt     DateTime?                 @db.DateTime(3)
+  publicAuthorizedById   String?                   @db.VarChar(191)
+  reviewerId             String?                   @db.VarChar(191)
+  reviewerEmailSnapshot  String?                   @db.VarChar(191)
+  reviewerFeedback       String?                   @db.Text
+  submittedAt            DateTime?                 @db.DateTime(3)
+  reviewedAt             DateTime?                 @db.DateTime(3)
+  approvedAt             DateTime?                 @db.DateTime(3)
+  participation          ImpactParticipation       @relation(fields: [participationId], references: [id], onDelete: Cascade)
+  publicAuthorizedBy     User?                     @relation("ImpactContributionPublicAuthorizer", fields: [publicAuthorizedById], references: [id], onDelete: SetNull)
+  reviewer               User?                     @relation("ImpactContributionReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  files                  ImpactContributionFile[]
+  zoneEvents             ImpactZoneEvent[]
+  auditEvents            ImpactContributionEvent[]
+  createdAt              DateTime                  @default(now()) @db.DateTime(3)
+  updatedAt              DateTime                  @updatedAt @db.DateTime(3)
+
+  @@index([status, updatedAt])
+  @@index([reviewerId, status])
+  @@index([id, revision, status])
+  @@map("app_impact_contributions")
+}
+
+model ImpactContributionFile {
+  id             String             @id @default(cuid()) @db.VarChar(191)
+  contributionId String             @db.VarChar(191)
+  originalName   String             @db.VarChar(255)
+  storageKey     String             @unique @db.VarChar(255)
+  mimeType       String             @db.VarChar(127)
+  fileSize       BigInt             @db.UnsignedBigInt
+  visibility     String             @default("PRIVATE") @db.VarChar(32)
+  contribution   ImpactContribution @relation(fields: [contributionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now()) @db.DateTime(3)
+
+  @@index([contributionId, createdAt])
+  @@map("app_impact_contribution_files")
+}
+
+model ImpactCareerCapability {
+  capabilityId       String           @db.VarChar(191)
+  canonicalProgramKey String          @db.VarChar(191)
+  weight             Int
+  capability         ImpactCapability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  @@id([capabilityId, canonicalProgramKey])
+  @@index([canonicalProgramKey])
+  @@map("app_impact_career_capabilities")
+}
+
+model ImpactZoneEvent {
+  id             String             @id @default(cuid()) @db.VarChar(191)
+  zoneId         String             @db.VarChar(191)
+  contributionId String             @db.VarChar(191)
+  eventType      String             @db.VarChar(64)
+  points         Int
+  description    String?            @db.VarChar(500)
+  zone           ImpactZone         @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  contribution   ImpactContribution @relation(fields: [contributionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime           @default(now()) @db.DateTime(3)
+
+  @@unique([contributionId, eventType])
+  @@index([zoneId, createdAt])
+  @@map("app_impact_zone_events")
+}
+
+model ImpactContributionEvent {
+  id                 String             @id @default(cuid()) @db.VarChar(191)
+  contributionId     String             @db.VarChar(191)
+  actorUserId        String?            @db.VarChar(191)
+  actorEmailSnapshot String?            @db.VarChar(191)
+  fromStatus         String?            @db.VarChar(32)
+  toStatus           String             @db.VarChar(32)
+  reason             String?            @db.Text
+  contribution       ImpactContribution @relation(fields: [contributionId], references: [id], onDelete: Cascade)
+  actor               User?              @relation("ImpactContributionEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt           DateTime           @default(now()) @db.DateTime(3)
+
+  @@index([contributionId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("app_impact_contribution_events")
 }
