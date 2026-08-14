@@ -11,4 +11,7 @@ assert.throws(() => validateAllowedPayload({ status: "APPROVED" }, ["revision"])
 assert.match(validateHttpUrl("https://example.test/path", "url"), /^https:/);
 assert.throws(() => validateHttpUrl("javascript:alert(1)", "url"), /http/);
 assert.equal(isContributionEditable("DRAFT"), true); assert.equal(isContributionEditable("SUBMITTED"), false);
-console.log("Impact flow service tests: 14 passed");
+validateAllowedPayload({ revision: 1, feedback: "Texto" }, ["revision", "feedback"]);
+assert.throws(() => validateAllowedPayload({ revision: 1, points: 999 }, ["revision", "feedback"]), /Payload/);
+assert.equal(visualState(24), "abandoned"); assert.equal(visualState(49), "powered");
+console.log("Impact flow service tests: 18 passed");

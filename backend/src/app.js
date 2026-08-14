@@ -8,6 +8,7 @@ import adminAnalyticsRoutes from "./routes/adminAnalyticsRoutes.js";
 import futureSimulatorRoutes from "./routes/futureSimulatorRoutes.js";
 import careerLabRoutes from "./routes/careerLabRoutes.js";
 import impactRoutes from "./routes/impactRoutes.js";
+import impactAdminRoutes from "./routes/impactAdminRoutes.js";
 import { errorHandler, notFoundHandler } from "./middlewares/errorMiddleware.js";
 
 const app = express();
@@ -33,6 +34,7 @@ app.use("/api/admin/analytics", adminAnalyticsRoutes);
 app.use("/api/future-simulator", futureSimulatorRoutes);
 app.use("/api/career-lab", careerLabRoutes);
 app.use("/api/impact", impactRoutes);
+app.use("/api/admin/impact", impactAdminRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

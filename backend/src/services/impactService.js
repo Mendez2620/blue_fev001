@@ -7,6 +7,8 @@ const contributionFields = ["title", "description", "processNotes", "resultUrl",
 const missionOrder = [{ sortOrder: "asc" }, { id: "asc" }];
 const participationOrder = [{ updatedAt: "desc" }, { id: "asc" }];
 const capabilityInclude = { capabilities: { include: { capability: true }, orderBy: { capabilityId: "asc" } } };
+const adminOrder = [{ updatedAt: "desc" }, { id: "asc" }];
+const FEEDBACK_MAX = 5000;
 
 export function visualState(percent) {
   if (percent >= 100) return "transformed";
@@ -63,6 +65,39 @@ function contributionData(body) {
   if (Object.hasOwn(body, "repositoryUrl")) data.repositoryUrl = validateHttpUrl(body.repositoryUrl, "repositoryUrl");
   if (Object.hasOwn(body, "reflection")) data.reflection = text(body.reflection, "reflection", { max: 10000 });
   return data;
+}
+
+function revision(body, allowed) {
+  validateAllowedPayload(body, allowed);
+  if (!Number.isInteger(body.revision) || body.revision < 0) throw new ApiError(400, "revision es obligatoria");
+  return body.revision;
+}
+
+function feedback(body, required) {
+  return text(body.feedback, "feedback", { required, max: FEEDBACK_MAX });
+}
+
+const adminInclude = {
+  participation: { include: { user: { select: { id: true, name: true, email: true } }, mission: { include: { zone: true, ...capabilityInclude } } } },
+  auditEvents: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+};
+
+async function reviewTransition(actor, id, body, { from, to, feedbackRequired = false, completeStatus }) {
+  const expectedRevision = revision(body, feedbackRequired ? ["revision", "feedback"] : ["revision"]);
+  const reason = feedbackRequired ? feedback(body, true) : null;
+  return prisma.$transaction(async (transaction) => {
+    const current = await transaction.impactContribution.findUnique({ where: { id }, select: { status: true, participationId: true } });
+    if (!current) throw new ApiError(404, "Contribution no encontrada");
+    const now = new Date();
+    const result = await transaction.impactContribution.updateMany({
+      where: { id, status: from, revision: expectedRevision },
+      data: { status: to, reviewerId: actor.id, reviewerEmailSnapshot: actor.email || null, reviewerFeedback: reason, reviewedAt: now, revision: { increment: 1 } },
+    });
+    if (result.count !== 1) throw new ApiError(409, "La contribution cambio; actualiza la pantalla");
+    if (completeStatus) await transaction.impactParticipation.update({ where: { id: current.participationId }, data: { status: completeStatus, completedAt: now, revision: { increment: 1 } } });
+    await transaction.impactContributionEvent.create({ data: { contributionId: id, actorUserId: actor.id, actorEmailSnapshot: actor.email || null, fromStatus: from, toStatus: to, reason } });
+    return transaction.impactContribution.findUnique({ where: { id }, include: adminInclude });
+  });
 }
 
 function publicMission(item, detailed = false, now = new Date()) {
@@ -176,5 +211,53 @@ export async function submitContribution(userId, actorEmail, id, body = {}) {
     if (result.count !== 1) throw new ApiError(409, "La contribution cambio; actualiza la pantalla");
     await transaction.impactContributionEvent.create({ data: { contributionId: id, actorUserId: userId, actorEmailSnapshot: actorEmail || null, fromStatus: item.status, toStatus: "SUBMITTED" } });
     return transaction.impactContribution.findUnique({ where: { id } });
+  });
+}
+
+export async function listAdminContributions(query = {}) {
+  validateAllowedPayload(query, ["status", "missionId"]);
+  const where = {};
+  if (query.status) where.status = String(query.status);
+  if (query.missionId) where.participation = { missionId: String(query.missionId) };
+  return prisma.impactContribution.findMany({ where, include: { participation: { include: { user: { select: { id: true, name: true, email: true } }, mission: { include: { zone: true } } } } }, orderBy: adminOrder });
+}
+
+export async function getAdminContribution(id) {
+  const item = await prisma.impactContribution.findUnique({ where: { id }, include: adminInclude });
+  if (!item) throw new ApiError(404, "Contribution no encontrada");
+  return item;
+}
+
+export async function startContributionReview(actor, id, body = {}) {
+  return reviewTransition(actor, id, body, { from: "SUBMITTED", to: "IN_REVIEW" });
+}
+
+export async function requestContributionChanges(actor, id, body = {}) {
+  return reviewTransition(actor, id, body, { from: "IN_REVIEW", to: "CHANGES_REQUESTED", feedbackRequired: true });
+}
+
+export async function rejectContribution(actor, id, body = {}) {
+  return reviewTransition(actor, id, body, { from: "IN_REVIEW", to: "REJECTED", feedbackRequired: true, completeStatus: "ABANDONED" });
+}
+
+export async function approveContribution(actor, id, body = {}) {
+  const expectedRevision = revision(body, ["revision", "feedback"]);
+  const reason = feedback(body, false);
+  return prisma.$transaction(async (transaction) => {
+    const current = await transaction.impactContribution.findUnique({
+      where: { id },
+      include: { participation: { include: { mission: true } } },
+    });
+    if (!current) throw new ApiError(404, "Contribution no encontrada");
+    const now = new Date();
+    const result = await transaction.impactContribution.updateMany({
+      where: { id, status: "IN_REVIEW", revision: expectedRevision },
+      data: { status: "APPROVED", reviewerId: actor.id, reviewerEmailSnapshot: actor.email || null, reviewerFeedback: reason, reviewedAt: now, approvedAt: now, revision: { increment: 1 } },
+    });
+    if (result.count !== 1) throw new ApiError(409, "La contribution cambio; actualiza la pantalla");
+    await transaction.impactContributionEvent.create({ data: { contributionId: id, actorUserId: actor.id, actorEmailSnapshot: actor.email || null, fromStatus: "IN_REVIEW", toStatus: "APPROVED", reason } });
+    await transaction.impactZoneEvent.create({ data: { zoneId: current.participation.mission.zoneId, contributionId: id, eventType: "CONTRIBUTION_APPROVED", points: current.participation.mission.points, description: `Contribution aprobada para ${current.participation.mission.title}` } });
+    await transaction.impactParticipation.update({ where: { id: current.participationId }, data: { status: "COMPLETED", completedAt: now, revision: { increment: 1 } } });
+    return transaction.impactContribution.findUnique({ where: { id }, include: adminInclude });
   });
 }
