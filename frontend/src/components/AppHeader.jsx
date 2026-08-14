@@ -19,6 +19,7 @@ export default function AppHeader({ user, onLogout, isSidebarOpen, onToggleSideb
       </div>
 
       <div className="header-actions">
+        <Link className="ghost-button" to="/futura">🏙️ FUTURA</Link>
         <Link className="ghost-button" to="/career-lab">🧪 Career Lab</Link>
         <Link className="ghost-button" to="/modo-2032">🔮 Modo 2032</Link>
         <div className="user-chip">

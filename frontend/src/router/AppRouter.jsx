@@ -6,6 +6,9 @@ import ChatPage from "../pages/ChatPage";
 import AdminAnalyticsPage from "../pages/AdminAnalyticsPage";
 import FutureSimulatorPage from "../pages/FutureSimulatorPage";
 import CareerLabPage from "../pages/CareerLabPage";
+import FuturaDistrictPage from "../pages/FuturaDistrictPage";
+import FuturaZonePage from "../pages/FuturaZonePage";
+import FuturaMissionPage from "../pages/FuturaMissionPage";
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -69,6 +72,9 @@ export default function AppRouter() {
         element={<ProtectedRoute><FutureSimulatorPage /></ProtectedRoute>}
       />
       <Route path="/career-lab" element={<ProtectedRoute><CareerLabPage /></ProtectedRoute>} />
+      <Route path="/futura" element={<FuturaDistrictPage />} />
+      <Route path="/futura/zones/:slug" element={<FuturaZonePage />} />
+      <Route path="/futura/missions/:slug" element={<FuturaMissionPage />} />
       <Route
         path="/admin/analytics"
         element={

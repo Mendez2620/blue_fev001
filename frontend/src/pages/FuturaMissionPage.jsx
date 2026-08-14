@@ -1,0 +1,16 @@
+import { useCallback, useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { getImpactMission } from "../api/impactApi";
+import { FuturaHeader, PageState } from "../components/futura/FuturaUi";
+
+function TextList({ title, items }) { if (!Array.isArray(items) || !items.length) return null; return <section className="mission-block"><h2>{title}</h2><ul>{items.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}</ul></section>; }
+export default function FuturaMissionPage() {
+  const { slug } = useParams(); const [mission, setMission] = useState(null); const [status, setStatus] = useState("loading");
+  const load = useCallback(async () => { setStatus("loading"); try { setMission(await getImpactMission(slug)); setStatus("ready"); } catch (error) { setStatus(error.response?.status === 404 ? "missing" : "error"); } }, [slug]);
+  useEffect(() => { load(); }, [load]);
+  if (status === "loading") return <PageState title="Preparando la misión"><p>Consultando instrucciones y reglas de seguridad…</p></PageState>;
+  if (status === "missing") return <PageState title="Misión no encontrada"><p>Esta misión no está disponible.</p></PageState>;
+  if (status === "error") return <PageState title="No pudimos cargar la misión" onRetry={load}><p>Intenta nuevamente en un momento.</p></PageState>;
+  const joinable = mission.availability?.joinable === true;
+  return <main className="futura-page"><FuturaHeader/><article className="mission-detail"><header><Link to={`/futura/zones/${encodeURIComponent(mission.zone.slug)}`}>← {mission.zone.name}</Link><p className="eyebrow">Misión pública</p><h1>{mission.title}</h1><p>{mission.summary}</p><div className="mission-meta"><span>{mission.difficulty}</span><span>{mission.estimatedMinutes} min</span><span>{mission.points} puntos</span><span>{joinable ? "Disponible" : "No disponible actualmente"}</span></div></header><section className="mission-block"><h2>El problema</h2><p>{mission.problemDescription}</p></section><section className="mission-block"><h2>Objetivo</h2><p>{mission.objective}</p></section><section className="mission-block"><h2>Instrucciones</h2><p>{mission.instructions}</p></section><TextList title="Entregables" items={mission.deliverables}/><TextList title="Criterios de revisión" items={mission.validationCriteria}/><section className="mission-safety"><span aria-hidden="true">⚑</span><div><h2>Seguridad de la misión</h2><p>{mission.safetyNotes || "Revisa el contexto y evita exponer información personal o realizar actividades de riesgo."}</p></div></section><section className="mission-block"><h2>Capacidades que pondrás en práctica</h2><div className="capability-list">{(mission.capabilities || []).map((capability) => <span key={capability.id || capability.slug}>{capability.name}</span>)}</div>{!mission.capabilities?.length && <p>No hay capacidades descriptivas disponibles.</p>}</section><footer className="mission-cta"><div><strong>{joinable ? "Misión disponible" : "No disponible actualmente"}</strong><p>La participación desde esta pantalla estará disponible próximamente.</p></div><button type="button" disabled>Participar próximamente</button></footer></article></main>;
+}

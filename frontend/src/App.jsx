@@ -1,6 +1,7 @@
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext.jsx";
 import AppRouter from "./router/AppRouter.jsx";
+import "./styles/futura.css";
 
 export default function App() {
   return (
