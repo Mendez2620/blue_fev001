@@ -9,6 +9,8 @@ import CareerLabPage from "../pages/CareerLabPage";
 import FuturaDistrictPage from "../pages/FuturaDistrictPage";
 import FuturaZonePage from "../pages/FuturaZonePage";
 import FuturaMissionPage from "../pages/FuturaMissionPage";
+import FuturaMyProjectsPage from "../pages/FuturaMyProjectsPage";
+import FuturaProjectPage from "../pages/FuturaProjectPage";
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -75,6 +77,8 @@ export default function AppRouter() {
       <Route path="/futura" element={<FuturaDistrictPage />} />
       <Route path="/futura/zones/:slug" element={<FuturaZonePage />} />
       <Route path="/futura/missions/:slug" element={<FuturaMissionPage />} />
+      <Route path="/futura/my-projects" element={<ProtectedRoute><FuturaMyProjectsPage /></ProtectedRoute>} />
+      <Route path="/futura/my-projects/:participationId" element={<ProtectedRoute><FuturaProjectPage /></ProtectedRoute>} />
       <Route
         path="/admin/analytics"
         element={

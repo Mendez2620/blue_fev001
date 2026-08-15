@@ -5,7 +5,7 @@ export const visualState = (value) => Object.hasOwn(stateLabels, value) ? value 
 export const safePercent = (value) => Math.max(0, Math.min(100, Number.isFinite(Number(value)) ? Number(value) : 0));
 
 export function FuturaHeader() {
-  return <header className="futura-header"><Link className="futura-brand" to="/futura"><span>FUTURA</span><strong>Distrito Cero</strong></Link><nav aria-label="Navegación FUTURA"><Link to="/futura">Distrito</Link><Link to="/chat">Blue FEV</Link></nav></header>;
+  return <header className="futura-header"><Link className="futura-brand" to="/futura"><span>FUTURA</span><strong>Distrito Cero</strong></Link><nav aria-label="Navegación FUTURA"><Link to="/futura">Distrito</Link><Link to="/futura/my-projects">Mis proyectos</Link><Link to="/chat">Blue FEV</Link></nav></header>;
 }
 
 export function Progress({ zone }) {
