@@ -2,6 +2,7 @@ import { Router } from "express";
 import * as controller from "../controllers/impactController.js";
 import { requireAuth } from "../middlewares/authMiddleware.js";
 import { myFootprint } from "../controllers/impactFootprintController.js";
+import { myCareerMatches } from "../controllers/impactCareerMatchController.js";
 
 const router = Router();
 
@@ -12,6 +13,7 @@ router.get("/missions/:slug", controller.mission);
 
 router.use(requireAuth);
 router.get("/my-footprint", myFootprint);
+router.get("/my-career-matches", myCareerMatches);
 router.post("/missions/:id/participations", controller.joinMission);
 router.get("/my-participations", controller.myParticipations);
 router.get("/my-participations/:id", controller.myParticipation);

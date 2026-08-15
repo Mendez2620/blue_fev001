@@ -22,6 +22,25 @@ const capabilities = [
   ["logistica", "Logística", "Gestión"], ["trabajo-colaborativo", "Trabajo colaborativo", "Colaboración"],
 ].map(([slug, name, category]) => ({ slug, name, category, description: `Capacidad demostrable de ${name.toLowerCase()}.` }));
 
+const careerCapabilityMappings = [
+  ["desarrollo-web", "ingenieria_desarrollo_y_gestion_de_software", 5],
+  ["desarrollo-web", "ingenieria_sistemas_computacionales", 3],
+  ["diseno-interfaces", "licenciatura_diseno_grafico_digital", 5],
+  ["diseno-interfaces", "ingenieria_entornos_virtuales_y_negocios_digitales", 3],
+  ["organizacion-informacion", "licenciatura_sistemas_de_informacion_administrativa", 5],
+  ["organizacion-informacion", "ingenieria_ciencia_de_datos", 3],
+  ["comunicacion", "licenciatura_comunicacion", 5],
+  ["comunicacion", "licenciatura_ciencias_de_la_comunicacion", 5],
+  ["analisis", "ingenieria_ciencia_de_datos", 3],
+  ["prototipado", "licenciatura_diseno_industrial", 5],
+  ["prototipado", "ingenieria_mecatronica", 3],
+  ["planeacion", "ingenieria_gestion_de_proyectos", 5],
+  ["planeacion", "tsu_tecnico_superior_universitario_en_administracion_area_formulacion_y_eval", 3],
+  ["logistica", "ingenieria_logistica", 5],
+  ["logistica", "licenciatura_logistica", 5],
+  ["logistica", "tsu_tecnico_superior_universitario_en_logistica_area_transporte_terrestre", 3],
+];
+
 const missions = [
   { zone: "centro-digital", slug: "digitaliza-una-causa", title: "Digitaliza una causa", summary: "Crea un recurso digital claro para comunicar una causa.", problem: "Una causa necesita presentar información útil de forma comprensible.", objective: "Diseñar un recurso digital accesible y verificable.", evidence: "DIGITAL_RESOURCE", safety: "No publiques datos personales, rostros o material de terceros sin autorización.", skills: [["desarrollo-web",5],["diseno-interfaces",4],["comunicacion",4],["accesibilidad",4]] },
   { zone: "centro-digital", slug: "ordena-informacion-util", title: "Ordena información útil", summary: "Organiza información para que otras personas puedan consultarla.", problem: "La información dispersa dificulta comprender y actuar.", objective: "Construir una estructura clara, verificable y accesible.", evidence: "DOCUMENT_OR_PROTOTYPE", safety: "Usa únicamente información autorizada y evita publicar datos personales.", skills: [["organizacion-informacion",5],["analisis",4],["accesibilidad",3],["comunicacion",3]] },
@@ -43,6 +62,14 @@ async function seedFutura() {
   for (const capability of capabilities) {
     const saved = await prisma.impactCapability.upsert({ where: { slug: capability.slug }, update: { ...capability, active: true }, create: { ...capability, active: true } });
     capabilityIds[capability.slug] = saved.id;
+  }
+  for (const [capabilitySlug, canonicalProgramKey, weight] of careerCapabilityMappings) {
+    const key = { capabilityId: capabilityIds[capabilitySlug], canonicalProgramKey };
+    await prisma.impactCareerCapability.upsert({
+      where: { capabilityId_canonicalProgramKey: key },
+      update: { weight },
+      create: { ...key, weight },
+    });
   }
   for (const [index, mission] of missions.entries()) {
     const data = { zoneId: zoneIds[mission.zone], slug: mission.slug, title: mission.title, summary: mission.summary, problemDescription: mission.problem, objective: mission.objective, instructions: "Documenta el proceso, entrega la evidencia solicitada y revisa que sea segura antes de enviarla.", deliverables: ["Evidencia principal", "Breve explicación del proceso"], validationCriteria: ["Responde al objetivo", "La evidencia es verificable", "Respeta las notas de seguridad"], safetyNotes: mission.safety, difficulty: "INITIAL", estimatedMinutes: 120, points: 25, evidenceType: mission.evidence, participationMode: "INDIVIDUAL", publicationStatus: "PUBLISHED", active: true, startsAt: null, endsAt: null, sortOrder: index + 1 };
