@@ -1528,3 +1528,105 @@ export async function findEligibleEducativePrograms({
   return eligible;
 }
 
+const catalogOfferingOrder = (left, right) =>
+  left.institutionName.localeCompare(right.institutionName, "es") ||
+  left.municipality.localeCompare(right.municipality, "es") ||
+  left.campusName.localeCompare(right.campusName, "es") ||
+  left.offeredProgramName.localeCompare(right.offeredProgramName, "es") ||
+  left.educativeOfferId.localeCompare(right.educativeOfferId, "en", { numeric: true });
+
+export async function resolveCanonicalProgramOfferingsBatch({
+  prisma,
+  canonicalProgramKeys = [],
+} = {}) {
+  if (!prisma?.$queryRawUnsafe) throw new Error("A Prisma client with $queryRawUnsafe is required");
+  const keys = uniqueValues(canonicalProgramKeys.map((key) => String(key || "").trim()).filter(Boolean));
+  const requested = keys.map((canonicalProgramKey) => {
+    const program = getCanonicalProgram(canonicalProgramKey);
+    if (!program || !["licenciatura", "ingenieria", "tsu"].includes(program.level)) {
+      throw new Error(`Unsupported canonical educational program: ${canonicalProgramKey}`);
+    }
+    return { canonicalProgramKey, program, studyType: getStudyTypeForAcademicLevel(program.level) };
+  });
+  const aliases = requested.flatMap(({ canonicalProgramKey, program, studyType }) =>
+    uniqueValues(program.exactAliases || []).map((exactAlias) => ({
+      canonicalProgramKey,
+      academicLevel: program.level,
+      studyType,
+      exactAlias: exactAlias.trim().replace(/\s+/g, " "),
+    })),
+  );
+  const offeringsByCanonicalProgramKey = Object.fromEntries(keys.map((key) => [key, []]));
+  if (!aliases.length) return { catalogQueryCount: 0, offeringsByCanonicalProgramKey };
+
+  const requestedSql = aliases.map(() => "SELECT ? AS canonicalProgramKey, ? AS academicLevel, ? AS studyType, ? AS exactAlias").join(" UNION ALL ");
+  const params = aliases.flatMap((alias) => [alias.canonicalProgramKey, alias.academicLevel, alias.studyType, alias.exactAlias]);
+  const rows = await prisma.$queryRawUnsafe(`
+    WITH requested AS (${requestedSql})
+    SELECT
+      requested.canonicalProgramKey,
+      requested.academicLevel,
+      o.id AS educativeOfferId,
+      o.name AS institutionName,
+      o.short_name AS institutionShortName,
+      campus.id AS campusId,
+      campus.name AS campusName,
+      COALESCE(NULLIF(TRIM(o.municipality), ''), NULLIF(TRIM(campus.municipality), ''), '') AS municipality,
+      c.name AS offeredProgramName,
+      o.redirect_url AS redirectUrl
+    FROM requested
+    JOIN tbl_educative_offer_campus_careers c
+      ON REGEXP_REPLACE(UPPER(TRIM(c.name)), '[[:space:]]+', ' ') = UPPER(requested.exactAlias)
+    JOIN tbl_educative_offer_campuses campus
+      ON campus.id = c.ev_educative_offer_campus_id
+    JOIN tbl_educative_offer o
+      ON o.id = campus.ev_educative_offer_id
+    WHERE o.active = 1
+      AND campus.active = 1
+      AND c.active = 1
+      AND o.level = '2'
+      AND o.redirect_url IS NOT NULL
+      AND TRIM(o.redirect_url) <> ''
+      AND c.name IS NOT NULL
+      AND TRIM(c.name) <> ''
+      AND UPPER(c.name) NOT LIKE '%TODO LO QUE DESEAS%'
+      AND UPPER(c.name) NOT LIKE '%NUESTRA OFERTA EDUCATIVA%'
+      AND UPPER(c.name) NOT LIKE '%OFERTA EDUCATIVA%'
+      AND (
+        (requested.studyType = 'tsu' AND (UPPER(c.name) LIKE '%TÉCNICO SUPERIOR UNIVERSITARIO%' OR UPPER(c.name) LIKE '%TECNICO SUPERIOR UNIVERSITARIO%' OR UPPER(c.name) LIKE '%TSU%' OR UPPER(c.name) LIKE '%T.S.U%'))
+        OR
+        (requested.studyType = 'undergraduate'
+          AND UPPER(c.name) NOT LIKE '%MAESTRÍA%'
+          AND UPPER(c.name) NOT LIKE '%MAESTRIA%'
+          AND UPPER(c.name) NOT LIKE '%DOCTORADO%'
+          AND UPPER(c.name) NOT LIKE '%ESPECIALIDAD%'
+          AND UPPER(c.name) NOT LIKE '%BACHILLERATO%'
+          AND UPPER(c.name) NOT LIKE '%TÉCNICO SUPERIOR UNIVERSITARIO%'
+          AND UPPER(c.name) NOT LIKE '%TECNICO SUPERIOR UNIVERSITARIO%'
+          AND UPPER(c.name) NOT LIKE '%TSU%'
+          AND UPPER(c.name) NOT LIKE '%T.S.U%')
+      )
+    ORDER BY requested.canonicalProgramKey, o.name, municipality, campus.name, c.name, o.id, campus.id
+  `, ...params);
+
+  const seen = new Set();
+  for (const row of rows) {
+    const offering = {
+      educativeOfferId: row.educativeOfferId?.toString?.() || String(row.educativeOfferId),
+      institutionName: row.institutionName || "",
+      institutionShortName: row.institutionShortName || "",
+      campusId: row.campusId?.toString?.() || String(row.campusId),
+      campusName: row.campusName || "",
+      municipality: row.municipality || "",
+      offeredProgramName: row.offeredProgramName || "",
+      redirectUrl: row.redirectUrl,
+    };
+    const identity = [row.canonicalProgramKey, normalizeText(offering.institutionName), normalizeText(offering.municipality), offering.campusId, normalizeProgramText(offering.offeredProgramName), offering.redirectUrl].join("|");
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    offeringsByCanonicalProgramKey[row.canonicalProgramKey]?.push(offering);
+  }
+  for (const offerings of Object.values(offeringsByCanonicalProgramKey)) offerings.sort(catalogOfferingOrder);
+  return { catalogQueryCount: 1, offeringsByCanonicalProgramKey };
+}
+
