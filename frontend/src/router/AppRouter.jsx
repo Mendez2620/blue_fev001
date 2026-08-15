@@ -11,6 +11,7 @@ import FuturaZonePage from "../pages/FuturaZonePage";
 import FuturaMissionPage from "../pages/FuturaMissionPage";
 import FuturaMyProjectsPage from "../pages/FuturaMyProjectsPage";
 import FuturaProjectPage from "../pages/FuturaProjectPage";
+import FuturaFootprintPage from "../pages/FuturaFootprintPage";
 import FuturaAdminQueuePage from "../pages/FuturaAdminQueuePage";
 import FuturaAdminContributionPage from "../pages/FuturaAdminContributionPage";
 
@@ -81,6 +82,7 @@ export default function AppRouter() {
       <Route path="/futura/missions/:slug" element={<FuturaMissionPage />} />
       <Route path="/futura/my-projects" element={<ProtectedRoute><FuturaMyProjectsPage /></ProtectedRoute>} />
       <Route path="/futura/my-projects/:participationId" element={<ProtectedRoute><FuturaProjectPage /></ProtectedRoute>} />
+      <Route path="/futura/my-footprint" element={<ProtectedRoute><FuturaFootprintPage /></ProtectedRoute>} />
       <Route path="/admin/futura" element={<ProtectedRoute><FuturaAdminQueuePage /></ProtectedRoute>} />
       <Route path="/admin/futura/contributions/:contributionId" element={<ProtectedRoute><FuturaAdminContributionPage /></ProtectedRoute>} />
       <Route
