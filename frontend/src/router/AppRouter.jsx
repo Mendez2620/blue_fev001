@@ -11,6 +11,8 @@ import FuturaZonePage from "../pages/FuturaZonePage";
 import FuturaMissionPage from "../pages/FuturaMissionPage";
 import FuturaMyProjectsPage from "../pages/FuturaMyProjectsPage";
 import FuturaProjectPage from "../pages/FuturaProjectPage";
+import FuturaAdminQueuePage from "../pages/FuturaAdminQueuePage";
+import FuturaAdminContributionPage from "../pages/FuturaAdminContributionPage";
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -79,6 +81,8 @@ export default function AppRouter() {
       <Route path="/futura/missions/:slug" element={<FuturaMissionPage />} />
       <Route path="/futura/my-projects" element={<ProtectedRoute><FuturaMyProjectsPage /></ProtectedRoute>} />
       <Route path="/futura/my-projects/:participationId" element={<ProtectedRoute><FuturaProjectPage /></ProtectedRoute>} />
+      <Route path="/admin/futura" element={<ProtectedRoute><FuturaAdminQueuePage /></ProtectedRoute>} />
+      <Route path="/admin/futura/contributions/:contributionId" element={<ProtectedRoute><FuturaAdminContributionPage /></ProtectedRoute>} />
       <Route
         path="/admin/analytics"
         element={
