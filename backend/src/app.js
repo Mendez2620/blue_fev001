@@ -5,8 +5,6 @@ import authRoutes from "./routes/authRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import adminAnalyticsRoutes from "./routes/adminAnalyticsRoutes.js";
-import futureSimulatorRoutes from "./routes/futureSimulatorRoutes.js";
-import careerLabRoutes from "./routes/careerLabRoutes.js";
 import { errorHandler, notFoundHandler } from "./middlewares/errorMiddleware.js";
 
 const app = express();
@@ -29,8 +27,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/admin/analytics", adminAnalyticsRoutes);
-app.use("/api/future-simulator", futureSimulatorRoutes);
-app.use("/api/career-lab", careerLabRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
